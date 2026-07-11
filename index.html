@@ -1018,7 +1018,7 @@
                         <label>Nome / Cliente</label>
                         <input type="text" id="keyNome" placeholder="Ex: João Silva">
                     </div>
-                    <button class="btn btn-red" onclick="gerarKey()" style="height:44px;">🔑 Gerar Key</button>
+                    <button class="btn btn-red" onclick="generarKey()" style="height:44px;">🔑 Gerar Key</button>
                 </div>
             </div>
             <div class="admin-section">
@@ -1105,8 +1105,8 @@
 
         <!-- MENU DE NAVEGAÇÃO DE PÁGINAS (ABAS) -->
         <div class="tabs-nav">
-            <button class="tab-btn active" onclick="switchPage('contasPage', this)">🎬 Contas</button>
-            <button class="tab-btn" onclick="switchPage('dadosPage', this)">👤 Dados Pessoais</button>
+            <button class="tab-btn active" id="btn-contasPage" onclick="switchPage('contasPage', this)">🎬 Contas</button>
+            <button class="tab-btn" id="btn-dadosPage" onclick="switchPage('dadosPage', this)">👤 Dados Pessoais</button>
         </div>
 
         <!-- ════════ PÁGINA 1: CONTAS ════════ -->
@@ -1150,7 +1150,7 @@
                 <div class="glass-card">
                     <div class="card-title">🔍 Busca & Controle de Contas</div>
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <input type="text" id="campoPesquisa" class="search-input" placeholder="Pesquisar por e-mail, pagamento ou plano..." oninput="filtrarTabela()" style="width:100%;">
+                        <input type="text" id="campoPesquisa" class="search-input" placeholder="Pesquisar por e-mail, pagamento ou plano..." oninput="filtrarTabela(); guardarBusca();" style="width:100%;">
                         <div class="controls-row" style="margin-top:0;">
                             <button class="btn btn-white" onclick="compartilharDados()">📋 Copiar Lista</button>
                             <button class="btn btn-ghost" onclick="limparTodaTabela()">🗑 Limpar Contas</button>
@@ -1214,7 +1214,7 @@
                 <div class="glass-card">
                     <div class="card-title">🔍 Filtrar e Exportar Dados</div>
                     <div class="search-row" style="margin-bottom:15px;">
-                        <input type="text" id="pesquisaDados" class="search-input" placeholder="Buscar por Nome ou CPF..." oninput="filtrarTabelaDados()">
+                        <input type="text" id="pesquisaDados" class="search-input" placeholder="Buscar por Nome ou CPF..." oninput="filtrarTabelaDados(); guardarBusca();">
                         <button class="btn btn-white" onclick="copiarApenasCPFs()">📋 Copiar Só CPFs Ativos</button>
                     </div>
                     
@@ -1475,7 +1475,7 @@
 
 
         // ═══════════════════════════════════════
-        // NAVEGAÇÃO ENTRE PÁGINAS (ABAS)
+        // NAVEGAÇÃO ENTRE PÁGINAS (ABAS PERSISTENTES)
         // ═══════════════════════════════════════
         function switchPage(pageId, btn) {
             document.querySelectorAll('.tab-content').forEach(function(content) {
@@ -1486,6 +1486,9 @@
             });
             document.getElementById(pageId).classList.add('active');
             btn.classList.add('active');
+            
+            // Salva a aba ativa atual para não perder ao reiniciar o app
+            try { localStorage.setItem('bk_aba_ativa', pageId); } catch(e) {}
         }
 
 
@@ -1631,6 +1634,13 @@
             updateRowNumbers();
         }
 
+        function guardarBusca() {
+            try {
+                localStorage.setItem('bk_busca_contas', document.getElementById('campoPesquisa').value);
+                localStorage.setItem('bk_busca_dados', document.getElementById('pesquisaDados').value);
+            } catch(e) {}
+        }
+
         function coletarDados() {
             var dados = [];
             document.querySelectorAll('#corpoTabela tr').forEach(function(linha) {
@@ -1658,6 +1668,12 @@
                         adicionarLinhaNaTabela(c.plataforma || 'Netflix', c.email, c.senha, c.pagamento || '', c.data || ''); 
                     }); 
                 }
+                
+                // Restaura textos de busca digitados anteriormente
+                var bContas = localStorage.getItem('bk_busca_contas') || '';
+                var bDados = localStorage.getItem('bk_busca_dados') || '';
+                document.getElementById('campoPesquisa').value = bContas;
+                document.getElementById('pesquisaDados').value = bDados;
             } catch (e) {}
         }
 
@@ -1705,8 +1721,8 @@
                 
                 var nome = 'Desconhecido';
                 for (var i = 0; i < linhas.length; i++) {
-                    var linha = linhas[i];
-                    var nomeMatch = linha.match(/(?:NOME|CLIENTE|TITULAR)\s*:\s*([^|;\n\r]+)/i);
+                    var línea = linhas[i];
+                    var nomeMatch = línea.match(/(?:NOME|CLIENTE|TITULAR)\s*:\s*([^|;\n\r]+)/i);
                     if (nomeMatch) {
                         nome = nomeMatch[1].replace(/[\-\*\_•■「」👤]/g, '').trim();
                         break;
@@ -1927,7 +1943,7 @@
             }
         }
 
-        function compartirDados() {
+        function compartilharDados() {
             var dados = coletarDados();
             if (dados.length === 0) { showToast('⚠️ Nenhum dado.'); return; }
             var txt = '─── BKLOGINS ───\n\n';
@@ -1941,7 +1957,19 @@
             carregarDadosSalvos();
             renderizarCPFs();
             updateEmptyState();
-            updateRowNumbers(); 
+            
+            // Executa os filtros iniciais caso houvesse texto salvo nos inputs de busca
+            filtrarTabela();
+            filtrarTabelaDados();
+            
+            // Recupera e abre a última aba em que o usuário estava ativo antes do "refresh"
+            try {
+                var ultimaAba = localStorage.getItem('bk_aba_ativa');
+                if (ultimaAba && document.getElementById(ultimaAba)) {
+                    var btnAlvo = document.getElementById('btn-' + ultimaAba);
+                    if (btnAlvo) switchPage(ultimaAba, btnAlvo);
+                }
+            } catch(e) {}
         });
     </script>
 </body>
